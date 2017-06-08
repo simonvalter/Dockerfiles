@@ -32,5 +32,5 @@ docker run -i -t --rm \
   --name $containerName \
   -p $httpPort:8081 \
   -p $httpsPort:8091 \
-	knyc/mule-ee:$version \
+	simv/mule-ee:$version \
 	$username $password $orgName $envName $containerName-$httpPort-$httpsPort

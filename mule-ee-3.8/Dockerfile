@@ -1,28 +1,48 @@
 ###############################################################################
-## Dockerizing Mule EE
+## Dockerizing Mule EE on Raspberry Pi 3
 ## Version:  1.0
-## Based on:  java:8-jre (Trusted Java from http://java.com)
 ###############################################################################
 
-FROM                    java:8-jre
-MAINTAINER              Ken Ng <ken.ng@mulesoft.com>
+FROM resin/rpi-raspbian:jessie
+MAINTAINER              Simon Valter <simon@valter.info>
+
+# Install dependencies and setup environment variables
+RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | tee /etc/apt/sources.list.d/webupd8team-java.list
+RUN echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | tee -a /etc/apt/sources.list.d/webupd8team-java.list
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EEA14886
+RUN echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections
+RUN apt-get update && apt-get install -y oracle-java8-installer \
+&&  rm -rf /var/lib/apt/lists/*
+
+# Define working directory
+WORKDIR /data
+
+# Define commonly used JAVA_HOME variable
+ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
+
+# Set locales
+RUN locale-gen en_GB.UTF-8
+ENV LANG en_GB.UTF-8
+ENV LC_CTYPE en_GB.UTF-8
 
 ###############################################################################
 ## Setting up the arguments
-ARG     muleVersion=3.8.1
-ARG     muleDistribution=mule-ee-distribution-standalone-$muleVersion.tar.gz
+ARG     muleVersion=3.8.4
+ARG     muleDistribution=mule-ee-distribution-standalone-$muleVersion.zip
 ARG     muleHome=/opt/mule-enterprise-standalone-$muleVersion
 
 ###############################################################################
+
 ## Base container configurations
 
 # Configure instance timezone
-RUN     echo 'Asia/Singapore' > /etc/timezone && dpkg-reconfigure tzdata
+RUN     echo 'Europe/Copenhagen' > /etc/timezone && dpkg-reconfigure tzdata
 
 # Install base pre-requisites
 RUN     apt-get update
 RUN     apt-get upgrade --yes --force-yes
 RUN     apt-get install --yes --force-yes apt-utils
+RUN     apt-get install --yes --force-yes unzip
 RUN     apt-get install --yes --force-yes curl
 RUN     apt-get install --yes --force-yes jq
 
@@ -32,8 +52,8 @@ RUN     apt-get install --yes --force-yes jq
 ## Install Mule EE
 WORKDIR /opt/
 COPY    ./$muleDistribution /opt/
-RUN     echo "3a49a52f360e5a7e139a654ed698a029 /opt/$muleDistribution" | md5sum -c
-RUN     tar -xzvf /opt/$muleDistribution
+#RUN     echo "3a49a52f360e5a7e139a654ed698a029 /opt/$muleDistribution" | md5sum -c
+RUN     cd /opt && unzip $muleDistribution
 RUN     ls
 RUN     ln -s $muleHome/ mule
 RUN     ls -l mule
@@ -41,7 +61,8 @@ RUN     rm -f $muleDistribution
 
 ## [OPTIONAL] Copy the Datamapper plugin
 # ADD     ./data-mapper-plugin-$muleVersion.zip /opt/mule/plugins/
-
+ADD     ./wrapper.conf /opt/mule/conf/
+ADD     ./mule /opt/mule/bin/
 ## Copy the License file - pre-package into docker image to avoid leakage
 # ADD     ./mule-ee-license.lic /opt/mule/conf/
 # RUN     /opt/mule/bin/mule -installLicense /opt/mule/conf/mule-ee-license.lic
